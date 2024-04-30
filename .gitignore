@@ -1,0 +1,3 @@
+*.out
+*-ubyte
+reading_data.cpp
