@@ -6,18 +6,27 @@
 #include <cmath>
 #include <fstream>
 
-#define alpha 0.001
-const int epochs = 10;
-const int training_size = 40000;
+#define alpha 0.01
+const int epochs = 100;
+const int training_size = 50000;
 const int image_size = 28 * 28;
+const int batch_size = 500;
 
 double sigmoid(double x) {
 	return 1 / (1 + exp(-x));
 }
 
-/*double relu(double x) {
+double relu(double x) {
 	return x > 0 ? x : 0;
-}*/
+}
+
+double softmax(double x, std::vector<double>& z) {
+	double exp_sum = 0;
+	for(double zi:z) {
+		exp_sum += exp(-zi);
+	}
+	return exp(-x) / exp_sum;
+}
 
 void read_mnist_train_image(std::ifstream& train_file, std::vector<double>& image, int i) {
 	train_file.seekg(4 * sizeof(int) + i * image_size, std::ios::beg);
@@ -54,17 +63,36 @@ class neuron {
     		num_weights = K;
     		weights.reserve(K);
 		for(int i = 0; i < K; i++) {
-			weights[i] = dist(gen);
+			weights.push_back(dist(gen));
 			// bias.push_back(dist(gen));
 		}
+		value = 0;
 	}
 	
-	void calculate_value(std::vector<double>& x) {
+	void calculate_value(std::vector<double>& x, const std::string& activation) {
 		for(int i = 0; i < num_weights; i++) {
 			value += weights[i] * x[i]; // + bias[i];
 		}
 		
-		value = sigmoid(value);
+		if(activation == "softmax") {
+		}
+		else {
+			activate(activation);
+		}
+		
+	}
+	
+	void activate(const std::string& activation) {
+		if(activation == "sigmoid") {
+			value = sigmoid(value);
+		}
+		else {
+			value = relu(value);
+		}
+	}
+	
+	void activate_softmax(std::vector<double>& z) {
+		value = softmax(value, z);
 	}
 	
 	void update_weights(std::vector<double>& x, double t) {
@@ -85,10 +113,12 @@ class layer {
 	std::vector<neuron> neurons;
 	std::vector<double> values;
 	double loss;
+	std::string activation;
 	
 	public:
-	layer(int K, int N) {
+	layer(int K, int N, const std::string& act) {
 		num_neurons = N;
+		activation = act;
 		neurons.reserve(N);
 		values.reserve(N);
 		for(int i = 0; i < N; i++) {
@@ -98,8 +128,17 @@ class layer {
 	
 	void calculate_values(std::vector<double>& x) {
 		for(int i = 0; i < num_neurons; i++) {
-			neurons[i].calculate_value(x);
+			neurons[i].calculate_value(x, activation);
 			values[i] = neurons[i].get_value();
+		}
+		
+		if(activation == "softmax") {
+			for(int i = 0; i < num_neurons; i++) {
+				neurons[i].activate_softmax(values);
+			}
+			for(int i = 0; i < num_neurons; i++) {
+				values[i] = neurons[i].get_value();
+			}
 		}
 	}
 	
@@ -112,6 +151,7 @@ class layer {
 
 	void calculate_loss(std::vector<double>& t) {
 		double y;
+		loss = 0;
 		for(int i = 0; i < num_neurons; i++) {
 			y = neurons[i].get_value();
 			loss += (t[i] - y) * (t[i] - y);
@@ -152,10 +192,10 @@ int main() {
 	std::ifstream tlf(train_label_file, std::ios::binary);
 	
 	// Initializing the layers
-	layer layer1 = layer(image_size, 128);
-	layer layer2 = layer(128, 64);
-	layer layer3 = layer(64, 10);
-	layer output_layer = layer(10, 1);
+	layer layer1 = layer(image_size, 128, "relu");
+	layer layer2 = layer(128, 64, "relu");
+	layer layer3 = layer(64, 10, "softmax");
+	layer output_layer = layer(10, 1, "sigmoid");
 	
 	double avg_loss;
 	
@@ -166,8 +206,8 @@ int main() {
 	while(ep < epochs) {
 		// Assuming image has stored 1 image data from the MNIST dataset
 		avg_loss = 0;
-		int i = 0;
-		while(i < training_size) {
+		int i = ep * batch_size;
+		while(i < (ep + 1) * batch_size) {
 			read_mnist_train_image(tif, image, i);
 			label = static_cast<double>(read_mnist_train_label(tlf, i));
 			
@@ -188,7 +228,7 @@ int main() {
 			i++;
 		}
 		
-		avg_loss /= training_size;
+		avg_loss /= batch_size;
 		
 		loss << avg_loss << std::endl;
 		std::cout << "Epoch: " << ep << "\n";
@@ -197,8 +237,8 @@ int main() {
 	
 	loss.close();
 	
-	read_mnist_train_image(tif, image, training_size + 10);
-	label = static_cast<double>(read_mnist_train_label(tlf, training_size + 10));
+	read_mnist_train_image(tif, image, training_size + 1000);
+	label = static_cast<double>(read_mnist_train_label(tlf, training_size + 1000));
 	
 	double prediction = std::round(predict(image, layer1, layer2, layer3, output_layer));
 	
