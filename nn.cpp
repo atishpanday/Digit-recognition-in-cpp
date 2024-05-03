@@ -8,12 +8,7 @@
 
 #include "sequential_nn/sequential_nn.h"
 
-const int epochs = 5;
-const int total_size = 600;
-const int training_size = 500;
-const int validation_size = total_size - training_size;
 const int image_size = 28 * 28;
-bool verbose = 0;
 
 void read_mnist_train_image(std::ifstream& train_file, std::vector<double>& image, int i) {
 	train_file.seekg(4 * sizeof(int) + i * image_size, std::ios::beg);
@@ -33,7 +28,18 @@ int read_mnist_train_label(std::ifstream& label_file, int i) {
 	return static_cast<int>(label);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	if (argc < 4) {
+		std::cerr << "Usage: " << argv[0] << " <epochs> <total_size> <training_size> <image_size>" << std::endl;
+		return 1;
+	}
+
+	// Parse command-line arguments
+	int epochs = std::atoi(argv[1]);
+	int total_size = std::atoi(argv[2]);
+	int training_size = std::atoi(argv[3]);
+	int validation_size = total_size - training_size;
+	
 	std::vector<double> image(image_size);
 	std::vector<double> label(10, 0.0);
 	int ind;
@@ -89,9 +95,9 @@ int main() {
 	
 	std::cout << "\n---------------Validating---------------";
 	int prediction;
-	int te = training_size;
+	int te = 0;
 	double accuracy = 0;
-	while(te < total_size) {
+	while(te < training_size) {
 		read_mnist_train_image(tif, image, te);
 		ind = read_mnist_train_label(tlf, te);
 		prediction = nn.predict(image);
@@ -100,7 +106,7 @@ int main() {
 		}
 		te++; 
 	}
-	accuracy /= validation_size;
+	accuracy /= training_size;
 	
 	std::cout << "\nValidation Accuracy: " << accuracy << "\n";
 	
