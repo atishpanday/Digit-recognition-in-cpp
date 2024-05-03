@@ -8,8 +8,8 @@
 
 const double alpha = 0.01;
 const int epochs = 5;
-const int total_size = 60000;
-const int training_size = 50000;
+const int total_size = 60;
+const int training_size = 50;
 const int validation_size = total_size - training_size;
 const int image_size = 28 * 28;
 //const int batch_size = 500;
@@ -214,7 +214,7 @@ class sequential_nn {
 
 	void backpropagation(std::vector<double>& image, std::vector<double>& label) {
 		layers[num_layers - 1].update_weights(layers[num_layers - 2].get_values(), label);
-		for(int i = (num_layers - 2); i > 0; i++) {
+		for(int i = (num_layers - 2); i > 0; i--) {
 			layers[i].update_weights(layers[i - 1].get_values(), layers[i + 1].get_values());
 		}
 		layers[0].update_weights(image, layers[1].get_values());
@@ -223,8 +223,9 @@ class sequential_nn {
 	public:
 	sequential_nn(std::vector<layer>& l) {
 		num_layers = l.size();
-		for(layer ll:l) {
-			layers.push_back(ll);
+		layers.reserve(num_layers);
+		for(int i = 0; i < num_layers; i++) {
+			layers.push_back(l[i]);
 		}
 	}
 		
