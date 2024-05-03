@@ -114,6 +114,9 @@ class neuron {
 		if(activation == "softmax") {
 			return (value - t) * x;
 		}
+		else if(activation == "sigmoid") {
+			return (value - t) * value * (1 - value) * x;
+		}
 		else {
 			return x > 0 ? (t * x / value) : 0;
 		}
@@ -198,30 +201,56 @@ class layer {
 	}
 };
 
-void forward(std::vector<double>& image, layer& layer1, layer& layer2, layer& output_layer) {
-	layer1.calculate_values(image);
-	layer2.calculate_values(layer1.get_values());
-	output_layer.calculate_values(layer2.get_values());
-}
-
-void backpropagation(std::vector<double>& image, std::vector<double>& label, layer& layer1, layer& layer2, layer& output_layer) {
-	output_layer.update_weights(layer2.get_values(), label);
-	layer2.update_weights(layer1.get_values(), output_layer.get_values());
-	layer1.update_weights(image, layer2.get_values());
-}
-
-int predict(std::vector<double>& image, layer& layer1, layer& layer2, layer& output_layer) {
-	forward(image, layer1, layer2, output_layer);
-	int pred = output_layer.get_values()[0];
-	int max_ind;
-	for(int i = 0; i < output_layer.get_num_neurons(); i++) {
-		if(pred < output_layer.get_values()[i]) {
-			pred = output_layer.get_values()[i];
-			max_ind = i;
+class sequential_nn {
+	std::vector<layer> layers;
+	int num_layers;
+	
+	void forward(std::vector<double>& image) {
+		layers[0].calculate_values(image);
+		for(int i = 1; i < num_layers; i++) {
+			layers[i].calculate_values(layers[i - 1].get_values());
 		}
 	}
-	return max_ind;
-}
+
+	void backpropagation(std::vector<double>& image, std::vector<double>& label) {
+		layers[num_layers - 1].update_weights(layers[num_layers - 2].get_values(), label);
+		for(int i = (num_layers - 2); i > 0; i++) {
+			layers[i].update_weights(layers[i - 1].get_values(), layers[i + 1].get_values());
+		}
+		layers[0].update_weights(image, layers[1].get_values());
+	}
+
+	public:
+	sequential_nn(std::vector<layer>& l) {
+		num_layers = l.size();
+		for(layer ll:l) {
+			layers.push_back(ll);
+		}
+	}
+		
+	void fit(std::vector<double>& image, std::vector<double>& label) {
+		forward(image);
+		backpropagation(image, label);
+	}
+
+	int predict(std::vector<double>& image) {
+		forward(image);
+		int pred = layers[num_layers - 1].get_values()[0];
+		int max_ind;
+		for(int i = 0; i < layers[num_layers - 1].get_num_neurons(); i++) {
+			if(pred < layers[num_layers - 1].get_values()[i]) {
+				pred = layers[num_layers - 1].get_values()[i];
+				max_ind = i;
+			}
+		}
+		return max_ind;
+	}
+	
+	double get_loss() {
+		return layers[num_layers - 1].get_loss();
+	}
+};
+
 
 int main() {
 	std::vector<double> image(image_size);
@@ -238,9 +267,12 @@ int main() {
 	int output_layer_neurons = 10;
 	
 	// Initializing the layers
-	layer layer1 = layer(image_size, layer1_neurons, "relu");
-	layer layer2 = layer(layer1_neurons, layer2_neurons, "relu");
-	layer output_layer = layer(layer2_neurons, output_layer_neurons, "softmax");
+	std::vector<layer> layers;
+	layers.emplace_back(image_size, layer1_neurons, "relu");
+	layers.emplace_back(layer1_neurons, layer2_neurons, "relu");
+	layers.emplace_back(layer2_neurons, output_layer_neurons, "softmax");
+	
+	sequential_nn nn = sequential_nn(layers);
 	
 	//if(false) {
 	double avg_loss;
@@ -259,11 +291,10 @@ int main() {
 			ind = read_mnist_train_label(tlf, tr);
 			label[ind] = 1.0;
 			
-			forward(image, layer1, layer2, output_layer);
-			backpropagation(image, label, layer1, layer2, output_layer);
+			nn.fit(image, label);
 			
 			label[ind] = 0.0;
-			avg_loss += output_layer.get_loss();
+			avg_loss += nn.get_loss();
 			tr++;
 		}
 		
@@ -274,7 +305,6 @@ int main() {
 		ep++;
 	}
 	
-	
 	loss.close();
 	
 	std::cout << "\n---------------Validating---------------";
@@ -284,7 +314,7 @@ int main() {
 	while(te < total_size) {
 		read_mnist_train_image(tif, image, te);
 		ind = read_mnist_train_label(tlf, te);
-		prediction = predict(image, layer1, layer2, output_layer);
+		prediction = nn.predict(image);
 		if(prediction == ind) {
 			accuracy++;
 		}
