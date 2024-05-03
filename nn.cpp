@@ -274,7 +274,6 @@ int main() {
 	
 	sequential_nn nn = sequential_nn(layers);
 	
-	//if(false) {
 	double avg_loss;
 	
 	std::cout << "---------------Training---------------";
@@ -323,34 +322,6 @@ int main() {
 	accuracy /= validation_size;
 	
 	std::cout << "\nValidation Accuracy: " << accuracy << "\n";
-	//}
-	// nan test block
-	/*
-	read_mnist_train_image(tif, image, 5000);
-	ind = read_mnist_train_label(tlf, 5000);
-	label[ind] = 1.0;
-	std::cout << "\nLabel: ";
-	for(int i = 0; i < 28; i++) {
-		for(int j = 0; j < 28; j++) {
-			if(image[i * 28 + j] > 0) std::cout << "#" << " ";
-			else std::cout << "  ";
-		}
-		std::cout << std::endl;
-	}	
-	for(int i = 0; i < 100; i++) {
-		forward(image, layer1, layer2, output_layer);
-		backpropagation(image, label, layer1, layer2, output_layer);
-	}
-	double pred = output_layer.get_values()[0];
-	int max_ind;
-	for(int i = 0; i < output_layer.get_num_neurons(); i++) {
-		if(pred < output_layer.get_values()[i]) {
-			pred = output_layer.get_values()[i];
-			max_ind = i;
-		}
-	}
-	std::cout << "\nPrediction: " << max_ind << "\n";
-	*/
 	
 	tif.close();
 	tlf.close();
